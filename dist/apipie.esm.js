@@ -1,11 +1,11 @@
-var index$1 = Array.isArray || function (arr) {
+var isarray = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
 /**
  * Expose `pathToRegexp`.
  */
-var index = pathToRegexp;
+var pathToRegexp_1 = pathToRegexp;
 var parse_1 = parse;
 var compile_1 = compile;
 var tokensToFunction_1 = tokensToFunction;
@@ -182,7 +182,7 @@ function tokensToFunction (tokens) {
         }
       }
 
-      if (index$1(value)) {
+      if (isarray(value)) {
         if (!token.repeat) {
           throw new TypeError('Expected "' + token.name + '" to not repeat, but received `' + JSON.stringify(value) + '`')
         }
@@ -333,7 +333,7 @@ function stringToRegexp (path, keys, options) {
  * @return {!RegExp}
  */
 function tokensToRegExp (tokens, keys, options) {
-  if (!index$1(keys)) {
+  if (!isarray(keys)) {
     options = /** @type {!Object} */ (keys || options);
     keys = [];
   }
@@ -409,7 +409,7 @@ function tokensToRegExp (tokens, keys, options) {
  * @return {!RegExp}
  */
 function pathToRegexp (path, keys, options) {
-  if (!index$1(keys)) {
+  if (!isarray(keys)) {
     options = /** @type {!Object} */ (keys || options);
     keys = [];
   }
@@ -420,17 +420,17 @@ function pathToRegexp (path, keys, options) {
     return regexpToRegexp(path, /** @type {!Array} */ (keys))
   }
 
-  if (index$1(path)) {
+  if (isarray(path)) {
     return arrayToRegexp(/** @type {!Array} */ (path), /** @type {!Array} */ (keys), options)
   }
 
   return stringToRegexp(/** @type {string} */ (path), /** @type {!Array} */ (keys), options)
 }
 
-index.parse = parse_1;
-index.compile = compile_1;
-index.tokensToFunction = tokensToFunction_1;
-index.tokensToRegExp = tokensToRegExp_1;
+pathToRegexp_1.parse = parse_1;
+pathToRegexp_1.compile = compile_1;
+pathToRegexp_1.tokensToFunction = tokensToFunction_1;
+pathToRegexp_1.tokensToRegExp = tokensToRegExp_1;
 
 function parseExecArgs (url, props, ref) {
   var _require = ref._require;
@@ -438,7 +438,7 @@ function parseExecArgs (url, props, ref) {
   var result = { url: url };
   if (_require.params && (!props || !props.params)) { throw new Error('Require params!') }
   if (_require.data && (!props || !props.data)) { throw new Error('Require data!') }
-  var requireParams = index.parse(url)
+  var requireParams = pathToRegexp_1.parse(url)
     .filter(function (token) { return [
           typeof token !== 'string',
           !token.optional, // https://github.com/pillarjs/path-to-regexp#optional
@@ -463,7 +463,7 @@ function parseExecArgs (url, props, ref) {
         throw new Error(("Require " + (requireParams.join(', ')) + ", but given " + (Object.keys(url_params).join(', ') || 'nothing')))
       }
     });
-    var toPath = index.compile(url);
+    var toPath = pathToRegexp_1.compile(url);
     result.url = toPath(url_params);
   }
   if (params) {
@@ -475,31 +475,29 @@ function parseExecArgs (url, props, ref) {
   return result
 }
 
-var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+var isMergeableObject = function isMergeableObject(value) {
+	return isNonNullObject(value)
+		&& !isSpecial(value)
+};
 
-
-
-
-
-function createCommonjsModule(fn, module) {
-	return module = { exports: {} }, fn(module, module.exports), module.exports;
+function isNonNullObject(value) {
+	return !!value && typeof value === 'object'
 }
 
-var index$3 = createCommonjsModule(function (module, exports) {
-(function (root, factory) {
-    if (typeof undefined === 'function' && undefined.amd) {
-        undefined(factory);
-    } else {
-        module.exports = factory();
-    }
-}(commonjsGlobal, function () {
+function isSpecial(value) {
+	var stringValue = Object.prototype.toString.call(value);
 
-function isMergeableObject(val) {
-    var nonNullObject = val && typeof val === 'object';
+	return stringValue === '[object RegExp]'
+		|| stringValue === '[object Date]'
+		|| isReactElement(value)
+}
 
-    return nonNullObject
-        && Object.prototype.toString.call(val) !== '[object RegExp]'
-        && Object.prototype.toString.call(val) !== '[object Date]'
+// see https://github.com/facebook/react/blob/b5ac963fb791d1298e7f396236383bc955f916c1/src/isomorphic/classic/element/ReactElement.js#L21-L25
+var canUseSymbol = typeof Symbol === 'function' && Symbol.for;
+var REACT_ELEMENT_TYPE = canUseSymbol ? Symbol.for('react.element') : 0xeac7;
+
+function isReactElement(value) {
+	return value.$$typeof === REACT_ELEMENT_TYPE
 }
 
 function emptyTarget(val) {
@@ -528,11 +526,11 @@ function defaultArrayMerge(target, source, optionsArgument) {
 function mergeObject(target, source, optionsArgument) {
     var destination = {};
     if (isMergeableObject(target)) {
-        Object.keys(target).forEach(function (key) {
+        Object.keys(target).forEach(function(key) {
             destination[key] = cloneIfNecessary(target[key], optionsArgument);
         });
     }
-    Object.keys(source).forEach(function (key) {
+    Object.keys(source).forEach(function(key) {
         if (!isMergeableObject(source[key]) || !target[key]) {
             destination[key] = cloneIfNecessary(source[key], optionsArgument);
         } else {
@@ -543,12 +541,16 @@ function mergeObject(target, source, optionsArgument) {
 }
 
 function deepmerge(target, source, optionsArgument) {
-    var array = Array.isArray(source);
+    var sourceIsArray = Array.isArray(source);
+    var targetIsArray = Array.isArray(target);
     var options = optionsArgument || { arrayMerge: defaultArrayMerge };
-    var arrayMerge = options.arrayMerge || defaultArrayMerge;
+    var sourceAndTargetTypesMatch = sourceIsArray === targetIsArray;
 
-    if (array) {
-        return Array.isArray(target) ? arrayMerge(target, source, optionsArgument) : cloneIfNecessary(source, optionsArgument)
+    if (!sourceAndTargetTypesMatch) {
+        return cloneIfNecessary(source, optionsArgument)
+    } else if (sourceIsArray) {
+        var arrayMerge = options.arrayMerge || defaultArrayMerge;
+        return arrayMerge(target, source, optionsArgument)
     } else {
         return mergeObject(target, source, optionsArgument)
     }
@@ -565,10 +567,7 @@ deepmerge.all = function deepmergeAll(array, optionsArgument) {
     })
 };
 
-return deepmerge
-
-}));
-});
+var deepmerge_1 = deepmerge;
 
 function normalizeRecord (record, ref) {
   var options = ref.options; if ( options === void 0 ) options = {};
@@ -585,8 +584,8 @@ function normalizeRecord (record, ref) {
       params: !!record.params
     },
     name: record.name,
-    meta: index$3(meta, record.meta || {}, { clone: true }),
-    options: index$3(options, record.options || {}, { clone: true }),
+    meta: deepmerge_1(meta, record.meta || {}, { clone: true }),
+    options: deepmerge_1(options, record.options || {}, { clone: true }),
     hooks: [].concat(hooks, record.hook || []),
     children: record.children || []
   }
@@ -742,16 +741,16 @@ function createExecFunc (record, fullName, axios) {
       }); }
   }
   if (record.options instanceof Array) {
-    record.options = index$3.all(record.options);
+    record.options = deepmerge_1.all(record.options);
   }
   if (record.meta instanceof Array) {
-    record.meta = index$3.all(record.meta);
+    record.meta = deepmerge_1.all(record.meta);
   }
   record.hooks.push(createRequestFunc());
   var fn = compose(record.hooks);
 
   return function (props) {
-    var tmpOptions = index$3(record.options, parseExecArgs(record.options.url, props, record), { clone: true });
+    var tmpOptions = deepmerge_1(record.options, parseExecArgs(record.options.url, props, record));
     var context = createContext(record.meta, tmpOptions);
     return fn(context).then(function () { return context; })
   }
